@@ -1,0 +1,8 @@
+django
+djangorestframework
+psycopg2
+pygments
+coreapi
+django-auth-ldap
+django-python3-ldap
+markdown
