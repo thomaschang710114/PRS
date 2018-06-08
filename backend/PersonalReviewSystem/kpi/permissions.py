@@ -45,9 +45,10 @@ class IsOwner(permissions.BasePermission):
         try:
             request_user_employee = request.user.employee.get()
         except Employee.DoesNotExist:
-            print('[permission] request user has no employee relationship')
-            if request.user.username == 'thomaschang':
+            if request.user.username in ['thomaschang', 'admin']:
+                print('[permission] this is the develop mode, return all queryset')
                 return True
+            print('[permission] request user has no employee relationship')
             return False
         except AttributeError as error:
             print('[permission] WRONG:', error)

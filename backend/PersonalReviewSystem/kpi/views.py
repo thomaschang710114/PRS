@@ -153,10 +153,10 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         try:
             request_user_employee = self.request.user.employee.get()
         except Employee.DoesNotExist:
-            print('[queryset] request user has no employee relationship')
-            if self.request.user.username == 'thomaschang':
+            if self.request.user.username in ['thomaschang', 'admin']:
                 print('[queryset] this is the develop mode, return all queryset')
                 return Employee.objects.all()
+            print('[queryset] request user has no employee relationship')
             return None
         except AttributeError as error:
             print('[queryset] WRONG:', error)
@@ -182,7 +182,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         # 千萬小心在這下斷點可能會導致異常
         param = {}
-        print('thomer EmployeeView.perform_update request.user:', self.request.user)
+        print('[EmployeeView] perform_update request.user:', self.request.user)
         # 確保要有 'employee_number' 否則 raise
         if 'employee_number' not in self.request.data:
             raise serializers.ValidationError('Must have employee_number field for update.')
@@ -192,6 +192,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                 user = User.objects.get(username=self.request.data['manager'])
                 param['manager'] = user
             except User.DoesNotExist:
+                print('[EmployeeView] perform_update 找不到主管:{}', self.request.data['manager'])
                 raise serializers.ValidationError('Cannot find manager {} user object'.format(self.request.data['manager']))
         # user may change Employee's duration
         duration_string = self.request.data.get('current_duration', None)
@@ -253,7 +254,7 @@ class EmployeeViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         param = {} #{'owner':self.request.user}
-        print('thomer EmployeeView.perform_create request.user:', self.request.user)
+        print('[EmployeeView] perform_create request.user:', self.request.user)
         role_choice = [j for i,j in ROLE_CHOICES]
         dept_choice = [j for i,j in DEPARTMENT_CHOICES]
         jb_choice = [j for i,j in JOBTITLE_CHOICES]
@@ -346,7 +347,7 @@ class RetrospectiveViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         param = {'owner':self.request.user}
-        print('thomer [Not Implement well] RetrospectiveView.perform_create request.user:', self.request.user)
+        print('thomas [Not Implement well] RetrospectiveView.perform_create request.user:', self.request.user)
         serializer.save(**param)
 
 class EvaluationViewSet(viewsets.ModelViewSet):

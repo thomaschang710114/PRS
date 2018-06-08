@@ -37,6 +37,7 @@ ALLOWED_HOSTS = ['localhost', '10.60.92.100']
 INSTALLED_APPS = [
     'kpi',
     'app',
+    'rest_framework.authtoken',
     'rest_framework',
     # Add your apps here to enable them
     'django.contrib.admin',
@@ -131,13 +132,16 @@ STATIC_URL = '/static/'
 STATIC_ROOT = posixpath.join(*(BASE_DIR.split(os.path.sep) + ['static']))
 
 REST_FRAMEWORK = {
+    # Django REST Framework 預設就是使用 JSON，所以不用設定。
+    # 使用 session 登入。
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.SessionAuthentication', 
-        'rest_framework.authentication.BasicAuthentication',# TokenAuthentication, SessionAuthentication
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.TokenAuthentication',# TokenAuthentication, SessionAuthentication
     ),
-    # 
+    # 使用 dj 標準的 `django.contrib.auth` permissions, 或僅允許未認證使用者只能 read-only
     #'DEFAULT_PERMISSION_CLASSES': (
-    #    'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly', # IsAdminUser, IsAuthenticated
+    #    'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly', # IsAdminUser, IsAuthenticated(必須登入才能使用)
     #),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,

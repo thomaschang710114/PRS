@@ -64,11 +64,14 @@ class Employee(models.Model):
     school = models.CharField(choices=SCHOOL_CHOICES, default='交通大學', max_length=30, help_text=_("CHOICE default 交通大學"))
     school_major = models.CharField(choices=SCHOOLMAJOR_CHOICES, default='資訊工程', max_length=30, help_text=_("CHOICE default 資訊工程"))
     academic_degree = models.CharField(choices=ACADEMIC_DEGREE_CHOICES, default='專科', max_length=10, help_text=_("CHOICE default 專科"))
-    onboard_date = models.DateField(null=True)
+    onboard_date = models.DateField(null=True, auto_now_add=True)
     # foreign key relationships
     current_duration = models.ForeignKey(Duration, related_name='employee', null=True, on_delete=models.CASCADE)
     owner = models.ForeignKey('auth.User', related_name='employee', on_delete=models.CASCADE) # 或這樣寫 models.OneToOneField(User, on_delete=models.CASCADE)
     manager = models.ForeignKey('auth.User', related_name='managee', on_delete=models.CASCADE, blank=True, null=True)
+
+    class Meta:
+        ordering = ['-id'] # 不加的話會有 pagination.py 的 UnorderedObjectListWarning 警告
 
     def __str__(self):
         return self.owner.username

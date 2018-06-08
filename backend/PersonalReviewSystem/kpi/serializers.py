@@ -76,12 +76,21 @@ class EmployeeSerializer(serializers.HyperlinkedModelSerializer):
     current_duration = serializers.ReadOnlyField(source='current_duration.name')
     profession_readiness_level = ProfessionReadinessLevelSerializer(many=True, required=False)                                              # reverse FK
     retrospective = RetrospectiveSerializer(many=True, required=False)#serializers.HyperlinkedRelatedField(many=True, view_name='retrospective-detail', read_only=True)# # reverse FK
-    evaluation = EvaluationSerializer(many=True, required=False)#serializers.HyperlinkedRelatedField(many=True, view_name='evaluation-detail', read_only=True)# reverse FK
+    #evaluation = EvaluationSerializer(many=True, required=False)#serializers.HyperlinkedRelatedField(many=True, view_name='evaluation-detail', read_only=True)# reverse FK
+    # 額外的欄位
+    uppermanager = serializers.SerializerMethodField()
     class Meta:
         model = Employee
-        fields = ('url', 'id', 'employee_number', 'ad_account', 'owner', 'manager', 'current_duration', 'retrospective', 'evaluation', 'profession_readiness_level',
-                  'role', 'kpi_state', 'department', 'job_title', 'onboard_date', 'school', 'school_major', 'academic_degree') # 可以再隨時新加想回傳給client的欄位
+        fields = ('url', 'id', 'employee_number', 'ad_account', 'owner', 'manager', 'current_duration', 'retrospective', 'profession_readiness_level',
+                  'role', 'kpi_state', 'department', 'job_title', 'onboard_date', 'school', 'school_major', 'academic_degree', 'uppermanager') # 可以再隨時新加想回傳給client的欄位
         #read_only_fields = (,)
+
+    def get_uppermanager(self, obj):
+        if obj.manager:
+            user = obj.manager.employee.get().manager
+            if user:
+                return str(user)
+        return ''
 
     @classmethod
     def make_time_tuple(cls, name):
@@ -112,7 +121,7 @@ class EmployeeSerializer(serializers.HyperlinkedModelSerializer):
                 duration = Duration.objects.get(name=duration_data)
             except Duration.DoesNotExist:
                 s, e = EmployeeSerializer.make_time_tuple(duration_data)
-                print('Create a new one duration object for {}'.format(duration_data))
+                print('Create a new one duration object : {}'.format(duration_data))
                 duration = Duration.objects.create(name=duration_data, start_date=s, end_date=e)
             except Duration.MultipleObjectsReturned:
                 print('should not go here [create] 001')
@@ -122,11 +131,15 @@ class EmployeeSerializer(serializers.HyperlinkedModelSerializer):
             try:
                 u = User.objects.get(username=user_dic_data['username'])
             except User.DoesNotExist:
+                print('Create a new User object : {}'.format(user_dic_data['username']))
                 u = User.objects.create(**user_dic_data)
                 u.set_password(user_dic_data['password'])
                 u.save()
+            except User.MultipleObjectsReturned:
+                print('should not go here [create] 002')
         #處理 addition_employees, 要先取出這額外資料才能把剩下的 validated_data 拿去寫 model
         addition_employees_list = validated_data.pop('addition_employees', [])
+        print('Create a new Employee object : {}'.format(user_dic_data['username']))
         employee = Employee.objects.create(owner=u, current_duration=duration, **validated_data) #最外層的 employee：他的 manager已在view的perform_create處理過了
         
         for item in addition_employees_list:
@@ -139,15 +152,20 @@ class EmployeeSerializer(serializers.HyperlinkedModelSerializer):
                     s, e = EmployeeSerializer.make_time_tuple(dd)
                     print('Create a new one duration object for {}'.format(dd))
                     duration = Duration.objects.create(name=dd, start_date=s, end_date=e)
+                except Duration.MultipleObjectsReturned:
+                    print('should not go here [create] 003')
             # 再處理 user
             udd = item.pop('user', None)
             if udd:
                 try:
                     u = User.objects.get(username=udd['username'])
                 except User.DoesNotExist:
+                    print('2nd layer, Create a new User object : {}'.format(udd['username']))
                     u = User.objects.create(**udd)
                     u.set_password(udd['password'])
                     u.save()
+                except User.MultipleObjectsReturned:
+                    print('should not go here [create] 004')
             # 再處理 manager
             mgr_string = item.pop('manager', None)
             m = None
@@ -156,6 +174,10 @@ class EmployeeSerializer(serializers.HyperlinkedModelSerializer):
                     m = User.objects.get(username=mgr_string)
                 except User.DoesNotExist:
                     raise serializers.ValidationError('Cannot find manager {} user object'.format(m))
+                except User.MultipleObjectsReturned:
+                    print('should not go here [create] 005')
+                    raise serializers.ValidationError('should not go here [create] 005')
+            print('2nd layer, Create a new Employee object : {}'.format(udd['username']))
             employee = Employee.objects.create(owner=u, current_duration=duration, manager=m, **item)
         return employee
 
@@ -174,10 +196,13 @@ class EmployeeSerializer(serializers.HyperlinkedModelSerializer):
                 s, e = EmployeeSerializer.make_time_tuple(duration_data)
                 print('Create a new one duration object for {}'.format(duration_data))
                 duration = Duration.objects.create(name=duration_data, start_date=s, end_date=e)
+            except Duration.MultipleObjectsReturned:
+                    print('should not go here [update] 001')
         # 找 employee_number對應的user obj (叫前端不要送owner好了)
         # 處理關聯 owner (此時一定有 employee_number 所指定的 employee obj，retro的話則可能有可能沒有
         kpi_employee = Employee.objects.get(employee_number=validated_data['employee_number']) # 受評者
         duration = duration if duration else kpi_employee.current_duration
+        print('受評者:{}, 期間:{}'.format(kpi_employee, duration))
 
         #把 retro 拿出來，先找到它的 owner
         retros_dict = validated_data.pop('retros', [])
@@ -186,19 +211,18 @@ class EmployeeSerializer(serializers.HyperlinkedModelSerializer):
                 evaluation_dict = oneRetro.pop('evaluation', None) # 把 oneRetro 字典中 evaluation 的部份抽出來
                 retro = None
                 try:
-                    print('now Retrospective count:{}'.format(Retrospective.objects.all().count()))
+                    print('總 retro 數量:{}'.format(Retrospective.objects.all().count()))
                     retro = Retrospective.objects.filter(current_duration=duration).get(owner=kpi_employee)
                     r = Retrospective.objects.filter(current_duration=duration).filter(owner=kpi_employee).update(**oneRetro) #
-                    print('now after update Retrospective count:{}'.format(Retrospective.objects.all().count()))
-                    print('update retrospective result:{}, now total retrospective for this owner count:{}'.format(r, Retrospective.objects.filter(current_duration=duration).filter(owner=kpi_employee).count()))
+                    print('順利更新後總 retro 筆數:{}，更新 {} 筆，此owner當期筆數:{}'.format(Retrospective.objects.all().count(), r, Retrospective.objects.filter(current_duration=duration).filter(owner=kpi_employee).count()))
                 except Retrospective.DoesNotExist:
-                    print('Create a new Retrospective objects, owner:{}'.format(kpi_employee.employee_number))
-                    print('before create Retrospective count:{}'.format(Retrospective.objects.all().count()))
+                    print('找不到，產生新retro owner:{}'.format(kpi_employee))
+                    print('產生前總 retro:{} 筆'.format(Retrospective.objects.all().count()))
                     retro = Retrospective.objects.create(owner=kpi_employee, current_duration=duration, **oneRetro)
-                    print('after create Retrospective count:{}'.format(Retrospective.objects.all().count()))
+                    print('產生後總 retro:{} 筆'.format(Retrospective.objects.all().count()))
                 except Retrospective.MultipleObjectsReturned:
-                    print('should not go here [update] 001')
-                    raise serializers.ValidationError('should not go here [update] 001')
+                    print('should not go here [update] 002')
+                    raise serializers.ValidationError('should not go here [update] 002')
                 # 接下來處理它的兒子，Evaluation
                 if evaluation_dict:
                     eval_by = evaluation_dict.pop('eval_by', None) # 把 evaluation_dict字典中 eval_by 的部份抽出來
@@ -217,30 +241,36 @@ class EmployeeSerializer(serializers.HyperlinkedModelSerializer):
                     elif 'comment' in evaluation_dict:
                         retro_type = '諮詢'
                     try:
-                        # 先get看看是否這個評分者eval_by的記錄存在
+                        print('先get看看該筆retro是否這個評分者{}的記錄存在'.format(eval_by))
                         e = retro.evaluation.get(eval_by=eval_by)
                         if 'score' in evaluation_dict and retro_type == '邀請評分':
+                            print('找到，且有帶score且為邀請評分，把done=True')
                             r = retro.evaluation.filter(eval_by=eval_by).update(done=True, **evaluation_dict)
                         else:
+                            print('找到，當作更新')
                             r = retro.evaluation.filter(eval_by=eval_by).update(**evaluation_dict)
-                        print('Evaluation filter result:', r)
+                        print('retro.evaluation成功更新 {} 筆'.format(r))
                     except Evaluation.DoesNotExist:
-                        print('Create a new Evaluation objects, retro owner:{}'.format(kpi_employee))
-                        print('before Evaluation create count:{}'.format(Evaluation.objects.all().count()))
+                        print('找不到，生一筆 Evaluation 物件給 {} 的 retro，且 done=True，type:{}'.format(kpi_employee, retro_type))
+                        print('產生前總 Evaluation {} 筆'.format(Evaluation.objects.all().count()))
                         e = Evaluation.objects.create(eval_by=eval_by, retro=retro, done=True, type=retro_type, **evaluation_dict)#有資料所以done=True
-                        print('after Evaluation create count:{}'.format(Evaluation.objects.all().count()))
+                        print('產生後總 Evaluation {} 筆'.format(Evaluation.objects.all().count()))
                     except Evaluation.MultipleObjectsReturned:
-                        print('should not go here [update] 002')
-                        raise serializers.ValidationError('should not go here [update] 002')
+                        print('should not go here [update] 003')
+                        raise serializers.ValidationError('should not go here [update] 003')
 
-        #把 prls 拿出來, 這邊跟 retro 的處理不一樣
+        #把 prls 拿出來, 這邊跟 retro 的處理不一樣，要先把舊的通通刪掉
         prls_list = validated_data.pop('prls', [])
         if prls_list:
+            print('原先 {} 的當期 PRL 有 {} 筆'.format(kpi_employee, ProfessionReadinessLevel.objects.filter(owner=kpi_employee, current_duration=duration).count()))
+            r = ProfessionReadinessLevel.objects.filter(owner=kpi_employee, current_duration=duration).delete()
+            print('清除結果 {} 通通清除後剩 {} 筆'.format(r, ProfessionReadinessLevel.objects.filter(owner=kpi_employee, current_duration=duration).count()))
             # 用個 for 迴圈處理，並生成 prl 物件
             for onePRL in prls_list:
                 # 還要處理它的 fk： owner, duration
-                print('Create a new PRL objects, owner:{}'.format(kpi_employee.employee_number))
+                print('產生一筆 PRL objects 給 {}'.format(kpi_employee))
                 ProfessionReadinessLevel.objects.create(owner=kpi_employee, current_duration=duration, **onePRL)
+            print('現在 {} 的當期 PRL 有 {} 筆'.format(kpi_employee, ProfessionReadinessLevel.objects.filter(owner=kpi_employee, current_duration=duration).count()))
 
         #把邀請評分新增的兩個拿出來
         reviewer = validated_data.pop('reviewer', None) # User object
@@ -261,8 +291,8 @@ class EmployeeSerializer(serializers.HyperlinkedModelSerializer):
                     print('Create a new Evaluation objects for invited_mgr:{}, retro owner:{}'.format(invited_mgr.username, kpi_employee))
                     invited_evaluation = Evaluation.objects.create(eval_by=invited_mgr.employee.get(), retro=retro, done=False, type='邀請評分') # 此時沒有score/comment
                 except Evaluation.MultipleObjectsReturned:
-                    print('should not go here [update] 003')
-                    raise serializers.ValidationError('should not go here [update] 003')
+                    print('should not go here [update] 004')
+                    raise serializers.ValidationError('should not go here [update] 004')
 
 
         #從 validated_data 取出要更新的資料再寫到原本

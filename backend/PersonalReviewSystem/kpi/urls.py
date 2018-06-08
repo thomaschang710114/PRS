@@ -48,7 +48,7 @@ urlpatterns = [
     #url(r'^employee/$', EmployeeView.as_view(), name="employee-list"),
     #來試試內建的得到 token 的 view，需用 post 方法送 username/password
     #url(r'^api-token-auth/', views.obtain_auth_token),
-    url(r'^get-token/', CustomAuthToken.as_view()),
+    url(r'^get-token/', CustomAuthToken.as_view(), name='kpi.get_token'),
 
     #url(r'^schema/$', schema_view), #試不出來
     url(r'^docs/', include_docs_urls(title="InQuartik's PRS API")), #預設其request=None
