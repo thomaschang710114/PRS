@@ -14,6 +14,7 @@ from django.contrib.auth.models import User
 from django.urls import reverse    #from django.core.urlresolvers import reverse
 from rest_framework.test import APIClient # Extends django's Client class
 from rest_framework import status
+from rest_framework.authtoken.models import Token
 
 from .models import Employee, Duration, Retrospective, Evaluation
 
