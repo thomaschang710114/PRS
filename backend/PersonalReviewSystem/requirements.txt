@@ -5,6 +5,7 @@ coreschema==0.0.4
 Django==2.0.5
 django-auth-ldap==1.5.0
 djangorestframework==3.8.2
+gunicorn==19.8.1
 idna==2.6
 itypes==1.1.0
 Jinja2==2.10
