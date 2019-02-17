@@ -1,1 +1,1 @@
-web: gunicorn PersonalReviewSystem.wsgi --log-file -
+web: gunicorn backend.PersonalReviewSystem.PersonalReviewSystem.wsgi --log-file -
