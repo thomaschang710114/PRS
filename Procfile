@@ -1,1 +1,1 @@
-web: gunicorn backend.PersonalReviewSystem.PersonalReviewSystem.wsgi --log-file -
+web: gunicorn PersonalReviewSystem.wsgi --chdir backend/PersonalReviewSystem
