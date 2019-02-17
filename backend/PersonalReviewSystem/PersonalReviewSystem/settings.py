@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/1.9/ref/settings/
 
 import os
 import posixpath
+import django_heroku
 print('settings.py begin >>>>>', os.getcwd())
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -156,4 +157,6 @@ EMAIL_HOST_PASSWORD = 'YOUR_PASSWORD'
 EMAIL_USE_TLS = True #這跟 EMAIL_USE_SSL 只能二選一
 DEFAULT_FROM_EMAIL = 'thomaschang <thomas.chang9527@gmail.com>'
 
+# Add at the bottom of settings.py, activate django-heroku
+django_heroku.settings(locals())
 print('settings.py end >>>>> static_root:', STATIC_ROOT)
